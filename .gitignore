@@ -113,3 +113,6 @@ logs/
 Real-ESRGAN/
 inputupscaleimage/
 outputupscaleimage/
+
+input/
+output/
