@@ -1,38 +1,72 @@
 import cv2
 import numpy as np
-from PIL import Image
-import torch
-from realesrgan import RealESRGAN
+import subprocess
+import os
 
-# === Load Image ===
-input_path = "input.jpg"  # your RGB image
-output_path = "output_upscaled.jpg"
+# Configuration
+input_folder = os.path.abspath("inputupscaleimage")
+temp_input_path = os.path.abspath("Real-ESRGAN/inputs/input_temp.jpg")
+real_esrgan_script = os.path.abspath("Real-ESRGAN/inference_realesrgan.py")
+real_esrgan_output_dir = os.path.abspath("Real-ESRGAN/results")
+output_folder = os.path.abspath("outputupscaleimage")
+model_name = "RealESRGAN_x4plus"
 
-# Read image (OpenCV loads in BGR)
-bgr = cv2.imread(input_path)
-rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)  # ensure it's RGB
+# Ensure necessary directories exist
+os.makedirs(output_folder, exist_ok=True)
+os.makedirs(os.path.dirname(temp_input_path), exist_ok=True)
+os.makedirs(real_esrgan_output_dir, exist_ok=True)
 
-# === Denoise (Optional) ===
-denoised = cv2.fastNlMeansDenoisingColored(bgr, None, 10, 10, 7, 21)
+# Valid image extensions
+valid_exts = (".jpg", ".jpeg", ".png", ".bmp")
 
-# === Sharpen (helps with blurry text) ===
-kernel = np.array([[0, -1, 0],
-                   [-1, 5, -1],
-                   [0, -1, 0]])
-sharpened = cv2.filter2D(denoised, -1, kernel)
+# Loop over input images
+for filename in os.listdir(input_folder):
+    if not filename.lower().endswith(valid_exts):
+        continue
 
-# Convert to RGB for PIL (RealESRGAN uses PIL images)
-rgb_sharpened = cv2.cvtColor(sharpened, cv2.COLOR_BGR2RGB)
-pil_img = Image.fromarray(rgb_sharpened)
+    input_path = os.path.join(input_folder, filename)
+    output_filename = os.path.splitext(filename)[0] + "_upscaled.jpg"
+    final_output_path = os.path.join(output_folder, output_filename)
 
-# === Load Real-ESRGAN Model ===
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-model = RealESRGAN(device, scale=4)
-model.load_weights('RealESRGAN_x4.pth')  # Download: https://github.com/xinntao/Real-ESRGAN
+    print(f"🔄 Processing {filename}...")
 
-# === Upscale ===
-sr_image = model.predict(pil_img)  # Super-resolved RGB PIL image
+    # Load and check image
+    img = cv2.imread(input_path)
+    if img is None:
+        print(f"❌ Failed to read: {input_path}")
+        continue
 
-# === Save Output ===
-sr_image.save(output_path)
-print(f"Upscaled image saved to {output_path}")
+    # Denoise
+    denoised = cv2.fastNlMeansDenoisingColored(img, None, 10, 10, 7, 21)
+
+    # Sharpen
+    sharpen_kernel = np.array([
+        [0, -1, 0],
+        [-1, 5, -1],
+        [0, -1, 0]
+    ])
+    sharpened = cv2.filter2D(denoised, -1, kernel=sharpen_kernel)
+
+    # Save temp input
+    cv2.imwrite(temp_input_path, sharpened)
+
+    # Call Real-ESRGAN
+    result = subprocess.run([
+        "python", real_esrgan_script,
+        "-i", temp_input_path,
+        "-n", model_name,
+        "--outscale", "4"
+    ], capture_output=True, text=True)
+
+    if result.returncode != 0:
+        print(f"❌ Real-ESRGAN failed:\n{result.stderr}")
+        continue
+
+    # Move generated output
+    real_output = os.path.join(real_esrgan_output_dir, "input_temp_out.jpg")
+    if not os.path.exists(real_output):
+        print(f"❌ Output not found: {real_output}")
+        continue
+
+    os.rename(real_output, final_output_path)
+    print(f"✅ Saved to: {final_output_path}")

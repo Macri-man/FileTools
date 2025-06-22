@@ -109,3 +109,10 @@ logs/
 
 
 *.jpg
+
+*/Real-ESRGAN/*
+*/inputupscaleimage/*
+*/outputupscaleimage/*
+Real-ESRGAN/
+inputupscaleimage/
+outputupscaleimage/
