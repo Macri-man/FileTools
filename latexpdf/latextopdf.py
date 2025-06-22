@@ -4,9 +4,9 @@ import subprocess
 from pathlib import Path
 
 # --- Configuration ---
-input_root = Path(os.path.abspath("latexfiles"))    # Source folder with .tex files
-output_root = Path(os.path.abspath("output"))       # Destination folder for PDFs
-cleanup = False                                     # Toggle cleanup of aux files
+input_root = Path(os.path.abspath("latexinput"))    # Source folder with .tex files
+output_root = Path(os.path.abspath("latexoutput"))       # Destination folder for PDFs
+cleanup = True                                     # Toggle cleanup of aux files
 
 # --- Extensions to clean ---
 cleanup_exts = [".aux", ".log", ".out", ".toc", ".bbl", ".blg", ".synctex.gz"]
