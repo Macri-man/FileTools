@@ -17,11 +17,11 @@ def list_code_files(folder):
     return [f for f in os.listdir(folder) if os.path.isfile(os.path.join(folder, f))]
 
 def code_to_png(code: str, file_path: str, output_path: str,
-                font_name='DejaVu Sans Mono',
-                font_size=18,
-                line_numbers=True,
+                font_name='Arial',
+                font_size=38,
+                line_numbers=False,
                 style='monokai',
-                image_pad=10) -> BytesIO:
+                image_pad=20) -> BytesIO:
     try:
         lexer = get_lexer_for_filename(file_path)
     except Exception:
@@ -67,14 +67,14 @@ with col1:
     code = st.text_area("✏️ Edit Code", value=code, height=300)
 
     st.subheader("🎨 Style Settings")
-    font_name = st.selectbox("Font", ["DejaVu Sans Mono", "Courier New", "Arial"])
-    font_size = st.slider("Font Size", 10, 40, 18)
-    image_pad = st.slider("Padding", 0, 100, 10)
-    line_numbers = st.checkbox("Show Line Numbers", value=True)
+    font_name = st.selectbox("Font", ["DejaVu Sans Mono", "Courier New", "Arial", "Arial Unicode MS" ], index=2)
+    font_size = st.slider("Font Size", 10, 100, 38)
+    image_pad = st.slider("Padding", 0, 100, 20)
+    line_numbers = st.checkbox("Show Line Numbers", value=False)
     style = st.selectbox("Pygments Style", [
         "default", "monokai", "friendly", "colorful", "manni",
         "perldoc", "pastie", "borland", "trac", "native"
-    ])
+    ], index=1)
 
     generate_all = st.button("📦 Generate All PNGs from codefiles")
 
@@ -88,7 +88,7 @@ with col2:
         img_io = code_to_png(code, file_path, output_path,
                              font_name, font_size, line_numbers, style, image_pad)
 
-        st.image(Image.open(img_io), caption=f"{output_filename}", use_column_width=True)
+        st.image(Image.open(img_io), caption=f"{output_filename}", use_container_width=True)
         st.download_button("📥 Download This PNG", data=img_io, file_name=output_filename, mime="image/png")
 
     except Exception as e:
@@ -108,7 +108,7 @@ if generate_all:
                 content = f.read()
             code_to_png(content, file_path, output_path,
                         font_name, font_size, line_numbers, style, image_pad)
-            st.image(output_path, caption=output_file, use_column_width=True)
+            st.image(output_path, caption=output_file, use_container_width=True)
             generated += 1
         except Exception as e:
             st.error(f"Failed to generate {filename}: {e}")
