@@ -107,12 +107,10 @@ debug/
 logs/
 
 
-
 *.jpg
+*.log
+*.aux
+*.blg
+*.bbl
 
 Real-ESRGAN/
-inputupscaleimage/
-outputupscaleimage/
-
-input/
-output/
