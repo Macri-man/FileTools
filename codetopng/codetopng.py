@@ -6,7 +6,7 @@ import streamlit as st
 from PIL import Image
 from io import BytesIO
 
-# Absolute-style folders (without ./)
+# Input/Output folders
 INPUT_FOLDER = "codefiles"
 OUTPUT_FOLDER = "codeimages"
 
@@ -32,7 +32,8 @@ def code_to_png(code: str, file_path: str, output_path: str,
         font_size=font_size,
         line_numbers=line_numbers,
         style=style,
-        image_pad=image_pad
+        image_pad=image_pad,
+        dpi=300
     )
 
     img_io = BytesIO()
@@ -46,7 +47,7 @@ def code_to_png(code: str, file_path: str, output_path: str,
 
 # Streamlit app
 st.set_page_config(page_title="Live Code to PNG", layout="wide")
-st.title("🖋️ Live Code to PNG Converter")
+st.title("🖋️ Code to PNG Converter")
 
 col1, col2 = st.columns([2, 3])
 
@@ -57,7 +58,7 @@ with col1:
         st.warning(f"No files found in '{INPUT_FOLDER}'. Please add code files.")
         st.stop()
 
-    selected_file = st.selectbox("Choose a file from codefiles/", files)
+    selected_file = st.selectbox("Choose a file to preview:", files)
     file_path = os.path.join(INPUT_FOLDER, selected_file)
 
     with open(file_path, 'r', encoding='utf-8') as f:
@@ -67,16 +68,19 @@ with col1:
 
     st.subheader("🎨 Style Settings")
     font_name = st.selectbox("Font", ["DejaVu Sans Mono", "Courier New", "Arial"])
-    font_size = st.slider("Font Size", 10, 36, 18)
-    image_pad = st.slider("Padding", 0, 50, 10)
+    font_size = st.slider("Font Size", 10, 40, 18)
+    image_pad = st.slider("Padding", 0, 100, 10)
     line_numbers = st.checkbox("Show Line Numbers", value=True)
     style = st.selectbox("Pygments Style", [
         "default", "monokai", "friendly", "colorful", "manni",
         "perldoc", "pastie", "borland", "trac", "native"
     ])
 
+    generate_all = st.button("📦 Generate All PNGs from codefiles")
+
 with col2:
-    st.subheader("🖼️ PNG Preview")
+    st.subheader("🖼️ Live Preview of Selected File")
+
     try:
         output_filename = selected_file + ".png"
         output_path = os.path.join(OUTPUT_FOLDER, output_filename)
@@ -84,8 +88,29 @@ with col2:
         img_io = code_to_png(code, file_path, output_path,
                              font_name, font_size, line_numbers, style, image_pad)
 
-        st.image(Image.open(img_io), caption="Rendered PNG", use_column_width=True)
-        st.download_button("📥 Download PNG", data=img_io, file_name=output_filename, mime="image/png")
+        st.image(Image.open(img_io), caption=f"{output_filename}", use_column_width=True)
+        st.download_button("📥 Download This PNG", data=img_io, file_name=output_filename, mime="image/png")
 
     except Exception as e:
-        st.error(f"Error generating image: {e}")
+        st.error(f"Error generating image for selected file: {e}")
+
+# --- Bulk Generation ---
+if generate_all:
+    st.subheader("📊 Generating All PNGs from codefiles/")
+    generated = 0
+    for filename in files:
+        file_path = os.path.join(INPUT_FOLDER, filename)
+        output_file = filename + ".png"
+        output_path = os.path.join(OUTPUT_FOLDER, output_file)
+
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+            code_to_png(content, file_path, output_path,
+                        font_name, font_size, line_numbers, style, image_pad)
+            st.image(output_path, caption=output_file, use_column_width=True)
+            generated += 1
+        except Exception as e:
+            st.error(f"Failed to generate {filename}: {e}")
+
+    st.success(f"✅ Generated {generated} PNG file(s) into '{OUTPUT_FOLDER}'")
