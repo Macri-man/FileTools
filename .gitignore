@@ -106,6 +106,9 @@ output/
 debug/
 logs/
 
+codefiles/
+codeimages/
+
 
 *.jpg
 *.log
