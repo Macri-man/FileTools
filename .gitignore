@@ -109,6 +109,8 @@ logs/
 codefiles/
 codeimages/
 
+latexinput/
+latexoutput/
 
 *.jpg
 *.log
