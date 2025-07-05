@@ -18,15 +18,18 @@ def compile_latex_files(input_root="latexinput", output_root="latexoutput", clea
     output_root = Path(os.path.abspath(output_root))
     tex_files = list(input_root.rglob("*.tex"))
 
-    print(f"📁 Input folder: {input_root}")
-    print(f"📂 Output folder: {output_root}")
-    print(f"🧾 Found {len(tex_files)} .tex files")
+    results = []
+
     for tex_path in tex_files:
         relative_path = tex_path.relative_to(input_root)
         tex_dir = tex_path.parent
         basename = tex_path.stem
-
-        print(f"\n📄 Compiling {relative_path} ...")
+        result_data = {
+            "file": str(relative_path),
+            "success": False,
+            "pdf_path": None,
+            "error": "",
+        }
 
         try:
             def run_latex():
@@ -40,36 +43,48 @@ def compile_latex_files(input_root="latexinput", output_root="latexoutput", clea
 
             result = run_latex()
             if result.returncode != 0:
-                print(f"❌ Failed to compile (1st run): {relative_path}")
+                result_data["error"] = result.stdout + "\n" + result.stderr
+                results.append(result_data)
                 continue
 
             if uses_bibtex(tex_path):
-                result_bib = subprocess.run(["bibtex", basename], cwd=tex_dir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-                if result_bib.returncode != 0:
-                    print(f"❌ BibTeX failed: {relative_path}")
+                bibtex_result = subprocess.run(
+                    ["bibtex", basename],
+                    cwd=tex_dir,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True
+                )
+                if bibtex_result.returncode != 0:
+                    result_data["error"] = bibtex_result.stdout + "\n" + bibtex_result.stderr
+                    results.append(result_data)
                     continue
 
-            for i in range(2):
+            for _ in range(2):
                 result = run_latex()
                 if result.returncode != 0:
-                    print(f"❌ Failed to compile (run {i+2}): {relative_path}")
+                    result_data["error"] = result.stdout + "\n" + result.stderr
+                    results.append(result_data)
                     break
             else:
-                print(f"✅ Successfully compiled: {relative_path}")
                 pdf_file = tex_dir / f"{basename}.pdf"
                 if pdf_file.exists():
                     dest_pdf_path = output_root / relative_path.parent / f"{basename}.pdf"
                     dest_pdf_path.parent.mkdir(parents=True, exist_ok=True)
                     shutil.move(str(pdf_file), str(dest_pdf_path))
-                    print(f"📦 Moved PDF to: {dest_pdf_path}")
+                    result_data["success"] = True
+                    result_data["pdf_path"] = str(dest_pdf_path)
                 else:
-                    print(f"⚠️ PDF not found for {relative_path}")
-
-            if cleanup:
-                for ext in cleanup_exts:
-                    aux_file = tex_dir / f"{basename}{ext}"
-                    if aux_file.exists():
-                        aux_file.unlink()
-
+                    result_data["error"] = "PDF not found after compilation."
         except Exception as e:
-            print(f"❌ Exception while compiling {relative_path}: {e}")
+            result_data["error"] = str(e)
+
+        if cleanup:
+            for ext in cleanup_exts:
+                aux_file = tex_dir / f"{basename}{ext}"
+                if aux_file.exists():
+                    aux_file.unlink()
+
+        results.append(result_data)
+
+    return results

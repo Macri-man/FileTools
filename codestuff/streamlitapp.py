@@ -160,21 +160,30 @@ def run_ui():
         else:
             st.info(f"📄 Found {len(tex_files)} `.tex` file(s)")
 
-            if st.button("▶️ Compile All LaTeX Files"):
-                with st.spinner("Compiling..."):
-                    try:
-                        compile_latex_files(latex_input_dir, latex_output_dir)
-                        st.success("✅ LaTeX compilation complete!")
-                    except Exception as e:
-                        st.error(f"❌ Compilation failed: {e}")
+            compile_trigger = st.button("▶️ Compile LaTeX Files")
+            results = None
 
-            pdf_files = list(Path(latex_output_dir).rglob("*.pdf"))
-            if pdf_files:
-                st.subheader("📥 Download PDFs")
-                for pdf in pdf_files:
-                    st.markdown(f"**{pdf.name}**")
-                    with open(pdf, "rb") as f:
-                        st.download_button("Download PDF", f.read(), file_name=pdf.name)
+            if compile_trigger:
+                with st.spinner("Running LaTeX compilation..."):
+                    try:
+                        results = compile_latex_files(latex_input_dir, latex_output_dir)
+                        st.success("✅ Compilation finished.")
+                    except Exception as e:
+                        st.error(f"❌ LaTeX processing failed: {e}")
+
+            if results:
+                for res in results:
+                    st.markdown(f"---\n### 📄 `{res['file']}`")
+                    if res["success"]:
+                        st.success("✅ Compiled successfully")
+                        with open(res["pdf_path"], "rb") as pdf_file:
+                            st.download_button("📥 Download PDF", pdf_file.read(), file_name=os.path.basename(res["pdf_path"]))
+                            st.markdown("**📚 Preview PDF:**")
+                            st.pdf(res["pdf_path"])
+                    else:
+                        st.error("❌ Compilation failed")
+                        with st.expander("📄 Show Error Log"):
+                            st.text(res["error"])
 
 if __name__ == "__main__":
     run_ui()
