@@ -1,11 +1,13 @@
-# file: math2english_sympy.py
 from sympy import *
-from sympy.parsing.latex import parse_latex
-from sympy.abc import _clash
 from sympy.core.function import AppliedUndef
+from sympy.parsing.latex import parse_latex
 
 def expr_to_english(expr) -> str:
-    if isinstance(expr, Symbol):
+    if isinstance(expr, Eq):
+        left, right = expr.args
+        return f"{expr_to_english(left)} equals {expr_to_english(right)}"
+
+    elif isinstance(expr, Symbol):
         return str(expr)
 
     elif isinstance(expr, Integer) or isinstance(expr, Float):
@@ -15,7 +17,15 @@ def expr_to_english(expr) -> str:
         return " plus ".join(expr_to_english(arg) for arg in expr.args)
 
     elif isinstance(expr, Mul):
-        return " times ".join(expr_to_english(arg) for arg in expr.args)
+        args = expr.args
+        parts = []
+        for i, arg in enumerate(args):
+            if isinstance(arg, Symbol) and i > 0 and isinstance(args[i-1], (Integer, Symbol)):
+                # Skip "times" in 2x or ab
+                parts.append(expr_to_english(arg))
+            else:
+                parts.append(expr_to_english(arg))
+        return " ".join(parts)
 
     elif isinstance(expr, Pow):
         base, exp = expr.args
@@ -44,7 +54,7 @@ def expr_to_english(expr) -> str:
         return f"{expr.func} of {', '.join(expr_to_english(arg) for arg in expr.args)}"
 
     else:
-        return str(expr)  # fallback
+        return str(expr)
 
 def translate_latex_to_english(latex_expr: str) -> str:
     try:
