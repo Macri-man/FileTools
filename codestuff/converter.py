@@ -1,9 +1,7 @@
-# converter.py
-
 import os
 from io import BytesIO
 from pygments import highlight
-from pygments.lexers import get_lexer_for_filename, guess_lexer
+from pygments.lexers import get_lexer_for_filename, guess_lexer, get_lexer_by_name
 from pygments.formatters import ImageFormatter
 
 class CodeToPNGConverter:
@@ -25,10 +23,36 @@ class CodeToPNGConverter:
 
     def code_to_png(self, code: str, file_path: str, output_path: str,
                     font_name='Arial', font_size=38, line_numbers=False,
-                    style='monokai', image_pad=20) -> BytesIO:
+                    style='monokai', image_pad=20, border=10, dpi=300,
+                    lang=None) -> BytesIO:
+        """
+        Converts code string to a PNG image.
+
+        Parameters:
+            code (str): Source code text.
+            file_path (str): Filename for lexer detection.
+            output_path (str): Where to save PNG.
+            font_name (str): Font family.
+            font_size (int): Font size.
+            line_numbers (bool): Show line numbers.
+            style (str): Pygments style.
+            image_pad (int): Padding inside image.
+            border (int): Border width around the image.
+            dpi (int): Image resolution in dots per inch.
+            lang (str or None): Explicit language lexer name to override file detection.
+
+        Returns:
+            BytesIO: In-memory PNG image.
+        """
+        # Determine lexer by explicit lang or filename or guessing
+        lexer = None
         try:
-            lexer = get_lexer_for_filename(file_path)
+            if lang:
+                lexer = get_lexer_by_name(lang)
+            else:
+                lexer = get_lexer_for_filename(file_path)
         except Exception:
+            # Fallback to guessing
             lexer = guess_lexer(code)
 
         formatter = ImageFormatter(
@@ -37,7 +61,9 @@ class CodeToPNGConverter:
             line_numbers=line_numbers,
             style=style,
             image_pad=image_pad,
-            dpi=300
+            line_pad=2,
+            image_border=border,
+            dpi=dpi
         )
 
         img_io = BytesIO()
