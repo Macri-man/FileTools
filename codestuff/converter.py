@@ -3,6 +3,8 @@ from io import BytesIO
 from pygments import highlight
 from pygments.lexers import get_lexer_for_filename, guess_lexer, get_lexer_by_name
 from pygments.formatters import ImageFormatter
+from pygments.styles import get_all_styles
+from pygments.util import ClassNotFound
 
 class CodeToPNGConverter:
     def __init__(self, input_folder="codefiles", output_folder="codeimages"):
@@ -35,26 +37,34 @@ class CodeToPNGConverter:
             font_name (str): Font family.
             font_size (int): Font size.
             line_numbers (bool): Show line numbers.
-            style (str): Pygments style.
+            style (str): Pygments style name.
             image_pad (int): Padding inside image.
             border (int): Border width around the image.
             dpi (int): Image resolution in dots per inch.
             lang (str or None): Explicit language lexer name to override file detection.
 
         Returns:
-            BytesIO: In-memory PNG image.
+            BytesIO: In-memory PNG image stream.
         """
-        # Determine lexer by explicit lang or filename or guessing
-        lexer = None
+        # --- Detect lexer ---
         try:
             if lang:
                 lexer = get_lexer_by_name(lang)
             else:
                 lexer = get_lexer_for_filename(file_path)
-        except Exception:
-            # Fallback to guessing
-            lexer = guess_lexer(code)
+        except ClassNotFound:
+            try:
+                lexer = guess_lexer(code)
+            except ClassNotFound:
+                raise ValueError(f"Cannot detect lexer for: {file_path}")
 
+        # --- Validate style ---
+        available_styles = list(get_all_styles())
+        if style not in available_styles:
+            print(f"⚠️ Warning: Style '{style}' not found. Using default 'monokai'.")
+            style = 'monokai'
+
+        # --- Generate PNG ---
         formatter = ImageFormatter(
             font_name=font_name,
             font_size=font_size,
@@ -67,11 +77,15 @@ class CodeToPNGConverter:
         )
 
         img_io = BytesIO()
-        img_io.write(highlight(code, lexer, formatter))
-        img_io.seek(0)
+        try:
+            img_io.write(highlight(code, lexer, formatter))
+            img_io.seek(0)
 
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
-        with open(output_path, 'wb') as f:
-            f.write(img_io.getvalue())
+            os.makedirs(os.path.dirname(output_path), exist_ok=True)
+            with open(output_path, 'wb') as f:
+                f.write(img_io.getvalue())
+        except Exception as e:
+            print(f"❌ Failed to generate PNG for {file_path}: {e}")
+            return None
 
         return img_io

@@ -1,0 +1,200 @@
+# app.py
+
+import os
+import json
+import streamlit as st
+from PIL import Image
+from pathlib import Path
+
+try:
+    from converter import CodeToPNGConverter
+    from analyzer import analyze_folder
+    from latexcompiler import compile_latex_files
+except ImportError as e:
+    st.error(f"❌ Required module is missing: {e}")
+    st.stop()
+
+SETTINGS_FILE = "settings.json"
+
+def load_settings():
+    if os.path.exists(SETTINGS_FILE):
+        try:
+            with open(SETTINGS_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except:
+            pass
+    return {
+        "font_name": "Arial",
+        "font_size": 38,
+        "image_pad": 20,
+        "line_numbers": False,
+        "style": "monokai",
+        "dpi": 300,
+        "border": 10
+    }
+
+def save_settings(settings):
+    try:
+        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
+            json.dump(settings, f)
+    except Exception as e:
+        st.error(f"Failed to save settings: {e}")
+
+def run_ui():
+    app = CodeToPNGConverter()
+
+    st.set_page_config(page_title="Code to PNG", layout="wide")
+    st.title("🧰 Code Tools Suite")
+
+    tab1, tab2, tab3 = st.tabs(["🖼️ Code to PNG", "📊 Performance Analyzer", "📄 LaTeX Compiler"])
+
+    persistent_settings = load_settings()
+    for k, v in persistent_settings.items():
+        if k not in st.session_state:
+            st.session_state[k] = v
+
+    with tab1:
+        st.subheader("🖼️ Code to PNG Converter")
+
+        subfolders = [""] + app.list_subfolders(app.INPUT_FOLDER)
+        selected_subfolder = st.selectbox("📁 Select Folder", subfolders)
+        folder_path = os.path.join(app.INPUT_FOLDER, selected_subfolder) if selected_subfolder else app.INPUT_FOLDER
+
+        if st.button("🔄 Refresh File List"):
+            st.experimental_rerun()
+
+        files = app.list_code_files(folder_path)
+        if not files:
+            st.warning("No files found.")
+            return
+
+        col1, col2 = st.columns([2, 3])
+
+        with col1:
+            selected_file = st.selectbox("📄 Select a File", files)
+            file_path = os.path.join(folder_path, selected_file)
+            with open(file_path, 'r', encoding='utf-8') as f:
+                code = f.read()
+
+            code = st.text_area("✏️ Edit Code", value=code, height=300)
+
+            font_name = st.selectbox("Font", ["Arial", "Courier New", "DejaVu Sans Mono"], key="font_name")
+            font_size = st.slider("Font Size", 10, 100, key="font_size")
+            image_pad = st.slider("Padding", 0, 100, key="image_pad")
+            border = st.slider("Image Border", 0, 30, key="border")
+            dpi = st.slider("DPI (Resolution)", 72, 600, key="dpi")
+            line_numbers = st.checkbox("Show Line Numbers", key="line_numbers")
+            style = st.selectbox("Style", ["monokai", "default", "friendly", "native", "trac"], key="style")
+
+            save_settings({
+                "font_name": font_name,
+                "font_size": font_size,
+                "image_pad": image_pad,
+                "line_numbers": line_numbers,
+                "style": style,
+                "border": border,
+                "dpi": dpi
+            })
+
+            generate_all = st.button("📦 Generate All PNGs")
+
+        with col2:
+            st.subheader("🖼️ Preview")
+            try:
+                output_file = os.path.splitext(selected_file)[0] + ".png"
+                output_path = os.path.join(app.OUTPUT_FOLDER, output_file)
+                img_io = app.code_to_png(code, file_path, output_path,
+                                         font_name, font_size, line_numbers,
+                                         style, image_pad, border, dpi)
+                st.image(img_io, caption=output_file, use_container_width=True)
+                st.download_button("📥 Download PNG", data=img_io, file_name=output_file, mime="image/png")
+            except Exception as e:
+                st.error(f"Error rendering image: {e}")
+
+            with st.expander("📄 View Source Code"):
+                st.code(code, language="auto")
+
+        if generate_all:
+            st.subheader("📊 Generating PNGs...")
+            count = 0
+            for f in files:
+                full_path = os.path.join(folder_path, f)
+                output_path = os.path.join(app.OUTPUT_FOLDER, os.path.splitext(f)[0] + ".png")
+                try:
+                    with open(full_path, 'r', encoding='utf-8') as file:
+                        content = file.read()
+                    app.code_to_png(content, full_path, output_path,
+                                    font_name, font_size, line_numbers,
+                                    style, image_pad, border, dpi)
+                    st.image(output_path, caption=f)
+                    count += 1
+                except Exception as e:
+                    st.error(f"❌ Failed for {f}: {e}")
+            st.success(f"✅ {count} images generated!")
+
+    with tab2:
+        st.subheader("📊 Performance Analyzer")
+        st.markdown("Compile and measure time + memory for source files.")
+
+        folders = [""] + app.list_subfolders(app.INPUT_FOLDER)
+        selected_perf_folder = st.selectbox("📁 Select folder to analyze", folders, key="analyze_folder")
+        folder_path = os.path.join(app.INPUT_FOLDER, selected_perf_folder) if selected_perf_folder else app.INPUT_FOLDER
+
+        if st.button("▶️ Run Analyzer"):
+            with st.spinner("Running performance analyzer..."):
+                try:
+                    analyze_folder(folder_path)
+                    with open("results.txt", "r", encoding="utf-8") as f:
+                        content = f.read()
+                    st.success("✅ Analysis Complete")
+                    st.download_button("📥 Download results.txt", data=content, file_name="results.txt")
+                    st.text_area("📄 Results", content, height=400)
+                except Exception as e:
+                    st.error(f"❌ Failed to analyze: {e}")
+
+    with tab3:
+        st.subheader("📄 LaTeX Compiler")
+        st.markdown("Compile `.tex` files to PDF using `pdflatex` and `bibtex`.")
+
+        latex_input_dir = "latexinput"
+        latex_output_dir = "latexoutput"
+        os.makedirs(latex_output_dir, exist_ok=True)
+
+        input_folders = [""] + app.list_subfolders(latex_input_dir)
+        selected_latex_subfolder = st.selectbox("📁 Select subfolder", input_folders, key="latex_folder")
+
+        full_latex_path = os.path.join(latex_input_dir, selected_latex_subfolder) if selected_latex_subfolder else latex_input_dir
+        tex_files = list(Path(full_latex_path).rglob("*.tex"))
+
+        if not tex_files:
+            st.warning("No `.tex` files found.")
+        else:
+            st.info(f"📄 Found {len(tex_files)} `.tex` file(s)")
+
+            compile_trigger = st.button("▶️ Compile LaTeX Files")
+            results = None
+
+            if compile_trigger:
+                with st.spinner("Running LaTeX compilation..."):
+                    try:
+                        results = compile_latex_files(latex_input_dir, latex_output_dir)
+                        st.success("✅ Compilation finished.")
+                    except Exception as e:
+                        st.error(f"❌ LaTeX processing failed: {e}")
+
+            if results:
+                for res in results:
+                    st.markdown(f"---\n### 📄 `{res['file']}`")
+                    if res["success"]:
+                        st.success("✅ Compiled successfully")
+                        with open(res["pdf_path"], "rb") as pdf_file:
+                            st.download_button("📥 Download PDF", pdf_file.read(), file_name=os.path.basename(res["pdf_path"]))
+                            st.markdown("**📚 Preview PDF:**")
+                            st.pdf(res["pdf_path"])
+                    else:
+                        st.error("❌ Compilation failed")
+                        with st.expander("📄 Show Error Log"):
+                            st.text(res["error"])
+
+if __name__ == "__main__":
+    run_ui()
