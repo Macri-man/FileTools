@@ -102,7 +102,7 @@ def save_results(results, output_file="latexoutput/results.json"):
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(results, f, indent=2)
 
-def compile_latex_files_parallel(input_root="latexinput", output_root="latexoutput", cleanup=True, max_workers=None):
+def compile_latex_files(input_root="latexinput", output_root="latexoutput", cleanup=True, max_workers=None):
     input_root = Path(os.path.abspath(input_root))
     output_root = Path(os.path.abspath(output_root))
     tex_files = list(input_root.rglob("*.tex"))
