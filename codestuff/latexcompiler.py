@@ -133,7 +133,7 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    results = compile_latex_files_parallel(
+    results = compile_latex_files(
         input_root=args.input,
         output_root=args.output,
         cleanup=not args.no_cleanup,

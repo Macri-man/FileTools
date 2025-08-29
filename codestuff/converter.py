@@ -27,25 +27,6 @@ class CodeToPNGConverter:
                     font_name='Arial', font_size=38, line_numbers=False,
                     style='monokai', image_pad=20, border=10, dpi=300,
                     lang=None) -> BytesIO:
-        """
-        Converts code string to a PNG image.
-
-        Parameters:
-            code (str): Source code text.
-            file_path (str): Filename for lexer detection.
-            output_path (str): Where to save PNG.
-            font_name (str): Font family.
-            font_size (int): Font size.
-            line_numbers (bool): Show line numbers.
-            style (str): Pygments style name.
-            image_pad (int): Padding inside image.
-            border (int): Border width around the image.
-            dpi (int): Image resolution in dots per inch.
-            lang (str or None): Explicit language lexer name to override file detection.
-
-        Returns:
-            BytesIO: In-memory PNG image stream.
-        """
         # --- Detect lexer ---
         try:
             if lang:
